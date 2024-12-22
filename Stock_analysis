@@ -1,0 +1,244 @@
+#讀取套件
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+from warnings import filterwarnings
+filterwarnings('ignore')
+
+import plotly.graph_objects as go
+
+# 讀取所需檔案csv檔
+data= pd.read_csv('Market1.csv')
+
+df=pd.DataFrame(data)
+df
+df.info()
+
+'''
+ 0   Index      112457 non-null  object 
+ 1   Date       112457 non-null  object 
+ 2   Open       110253 non-null  float64  資料短缺
+ 3   High       110252 non-null  float64  資料短缺
+ 4   Low        110251 non-null  float64  資料短缺
+ 5   Close      110250 non-null  float64  資料短缺
+ 6   Adj Close  110244 non-null  float64  資料短缺
+ 7   Volume     110253 non-null  float64  資料短缺
+ 
+ 此資訊對於了解數據的完整性以及根據分析或建模目標決定處理缺失值   要想要怎麼去弄缺值（插補或刪除） 
+ '''
+ 
+ # 缺失職欄位檢查
+missing_values_count = df.isnull().sum()
+missing_values_count
+#missing_values_count[missing_values_count > 0]
+#建立一個df1為四捨五入
+df1 = df.round()
+df1
+
+df1.describe()
+
+#找尋裡面index的索引值數據檢查
+index_description = df1.Index.describe()
+#可以看出來unique有14個唯一值 最常出現的綜數為 N225 在112457筆中佔14500
+print("Description of the index:")
+index_description
+
+
+
+#檢視一下Index裡面14個唯一值為何
+df1_reset = df1.reset_index()
+
+unique_names = df1['Index'].unique()
+
+print("Unique values in the 'Index' column:")
+print(unique_names)
+
+
+# 先來看NYA
+df2=df1[df1["Index"]=="NYA"]
+
+df2.info
+df2.Index.describe()
+
+# 先將字串轉換為datetime格式
+df2['Date'] = pd.to_datetime(df2['Date'])
+
+#新增三個欄位 年月日
+df2['year'] = df2["Date"].dt.year
+df2["month"] = df2["Date"].dt.month
+df2["day"] = df2["Date"].dt.day
+
+df2.describe()
+
+#開盤與收盤關係
+#x軸為開盤、y軸為收盤 
+#跑圖出來之後有發現兩個點異常
+# Relationship between Open Price and Adjusted Close Price.
+plt.scatter(df2 ['Open'],df2 ["Adj Close"], color="springgreen")
+plt.xlabel('Open')
+plt.ylabel("Adj Close")
+plt.title ("Open vs. Adj Close Prices")
+plt.grid()#網格線
+plt.show()
+
+
+
+#最高價與收盤價的關係
+#x軸為最高價、y軸為收盤 
+#跑圖出來之後有發現兩個點異常
+plt.scatter(df2 ['High'],df2 ["Adj Close"],color="blue")
+plt.xlabel('High')
+plt.ylabel("Adj Close")
+plt.title ("High vs. Adj Close Prices")
+plt.grid()
+plt.show()
+
+#最低價與收盤價的關係
+#x軸為最低價、y軸為收盤 
+#跑圖出來之後有發現一個點異常
+plt.scatter(df2 ['Low'],df2 ["Adj Close"],color="red")
+plt.xlabel('Low')
+plt.ylabel("Adj Close")
+plt.title ("Low vs. Adj Close Prices")
+plt.grid()
+plt.show()
+
+#交易量與收盤價的關係
+#發現關聯性不是很大沒有規律性
+plt.scatter(df2 ['Volume'],df2 ["Adj Close"],color="gold")
+plt.xlabel('Volume')
+plt.ylabel("Adj Close")
+plt.title ("Volume Adj Close Prices")
+plt.grid()
+plt.show()
+
+
+#刪除前面覺得有問題的參數
+df2.describe()
+df2.info()
+'''可以看到有缺值的
+Open          1
+High          2
+Low           3
+Close         4
+Adj Close    10
+Volume        1
+'''
+df2.isnull().sum()
+#建立df3先看結果再來決定使用資料(減少了16筆資料)
+df3=df2.dropna()
+
+#再來尋找偏離過大的兩個點 
+#第一筆為>6000&<1000 為第831筆
+noise = df3[(df3["Adj Close"]>6000) & (df3["Open"]<1000)]
+noise
+#第二筆為<2000&>4000為第852筆
+noise1=df3[(df3["Adj Close"]<2000) & (df3["Open"]>4000)]
+noise1
+
+df3.drop(index=[831, 852], inplace=True)
+#df2--->df3進行資料清理後原本為13948--->13930筆
+
+#再看一次資料清理後的資料去對比程式碼80跑出來的圖
+plt.scatter(df3['Open'],df3["Adj Close"], color='limegreen')
+plt.xlabel('Open')
+plt.ylabel("Adj Close")
+plt.title ("Open vs. Adj Close Prices")
+plt.grid()
+plt.show()
+
+
+#清理
+noise2=df3[(df3["Adj Close"]<1000) & (df3["High"]>5000)]
+noise2
+df3.drop(index=[829, 833], inplace=True)
+#跑圖比對程式碼93圖
+plt.scatter(df3 ['High'],df3 ["Adj Close"],color='magenta')
+plt.xlabel('High')
+plt.ylabel("Adj Close")
+plt.title ("High vs. Adj Close Prices")
+plt.grid()
+plt.show()
+
+
+#跑圖對比程式碼102行
+plt.scatter(df3 ['Low'],df3 ["Adj Close"],color='aqua')
+plt.xlabel('Low')
+plt.ylabel("Adj Close")
+plt.title ("Low vs. Adj Close Prices")
+plt.grid()
+plt.show()
+
+
+# Set Seaborn style to "whitegrid"
+sns.set(style="whitegrid")
+
+# Line plot for linear regression using Seaborn
+sns.lineplot(x=df3['Date'], y=df3['Adj Close'], color='r')
+
+plt.xlabel('Date')
+plt.ylabel('Adj Close')
+plt.title('Linear Analysis of Adj Close over Time ')
+
+plt.show()
+
+
+figure = go.Figure(data=[go.Candlestick(x=df3.index,
+                                         open=df3["Open"],
+                                         high=df3["High"],
+                                         low=df3["Low"],
+                                         close=df3["Adj Close"])])
+figure.update_layout(title="Time Series Analysis (Candlestick Chart)",
+                      xaxis_rangeslider_visible=False)
+figure.show()
+
+
+#熱力圖去看漲幅比
+#想看的部分為近十年的狀況-2015-2024
+filtered_df = df3[(df3['Date'].dt.year >= 2015) & (df3['Date'].dt.year <= 2024)]
+#最大年份為資料最後一個年份
+max_year_last_period = filtered_df['Date'].dt.year.max()
+#年份為最大年份-9
+last_10_years_df = filtered_df[filtered_df['Date'].dt.year >= max_year_last_period - 9]
+
+heatmap_data = last_10_years_df.pivot_table(values='Adj Close', index='month', columns='year', aggfunc='mean')
+
+heatmap_data = last_10_years_df.pivot_table(index='year', columns='month', values='Adj Close')
+#繪圖
+plt.figure(figsize=(12, 8))
+sns.heatmap(heatmap_data, cmap='viridis', annot=True, fmt=".2f", linewidths=.5)
+plt.title('Heatmap of Adj Close over the Last 10 Years and Months')
+plt.xlabel('Month')
+plt.ylabel('Year')
+plt.show()
+
+
+# 過濾數據：選取2015到2024年的資料
+filtered_df = df3[(df3['Date'].dt.year >= 2015) & (df3['Date'].dt.year <= 2024)]
+# 找到最新年份
+max_year_last_period = filtered_df['Date'].dt.year.max()
+# 過濾最近10年的數據
+last_10_years_df = filtered_df[filtered_df['Date'].dt.year >= max_year_last_period - 9]
+# 創建樞紐表：按年份和月份計算成交量的平均值
+heatmap_data = last_10_years_df.pivot_table(index='year', columns='month', values='Volume', aggfunc='mean')
+# 繪製熱力圖
+plt.figure(figsize=(16, 10))
+sns.heatmap(heatmap_data, cmap='coolwarm', annot=True, fmt=".2f", linewidths=.5,annot_kws={"size": 8})
+plt.title('Heatmap of Volume over the Last 10 Years and Months', fontsize=16)
+plt.xlabel('Month', fontsize=14)
+plt.ylabel('Year', fontsize=14)
+plt.show()
+
+
+# 過濾數據：選取2015到2024年的資料
+filtered_df = df3[(df3['Date'].dt.year >= 2015) & (df3['Date'].dt.year <= 2024)]
+# 找到最新年份
+max_year_last_period = filtered_df['Date'].dt.year.max()
+# 過濾最近10年的數據
+last_10_years_df = filtered_df[filtered_df['Date'].dt.year >= max_year_last_period - 9]
+# 創建樞紐表：按年份和月份計算成交量的平均值
+heatmap_data = last_10_years_df.pivot_table(index='year', columns='month', values='Volume', aggfunc='mean')
+sns.set_theme(style="ticks")
